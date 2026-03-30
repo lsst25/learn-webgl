@@ -10,10 +10,16 @@ if (!gl) {
 
 // Vertex shader - positions geometry
 const vertexShaderSource = `
-  attribute vec4 a_position;
+  attribute vec2 a_position;
+  
+  uniform vec2 u_resolution;
 
   void main() {
-    gl_Position = a_position;
+    vec2 zeroToOne = a_position / u_resolution;
+    vec2 zeroToTwo = zeroToOne * 2.0;
+    vec2 clipSpace = zeroToTwo - 1.0;
+
+    gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
   }
 `;
 
@@ -53,20 +59,30 @@ function createProgram(gl, vertexShader, fragmentShader) {
 
 // Create shaders and program
 const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+const fragmentShader = createShader(
+  gl,
+  gl.FRAGMENT_SHADER,
+  fragmentShaderSource,
+);
 const program = createProgram(gl, vertexShader, fragmentShader);
 
 // Look up attribute location
 const positionAttributeLocation = gl.getAttribLocation(program, "a_position");
+const resolutionUniformLocation = gl.getUniformLocation(
+  program,
+  "u_resolution",
+);
 
 // Create a buffer and put a triangle in it
 const positionBuffer = gl.createBuffer();
 gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-  0.0,  0.5,
- -0.5, -0.5,
-  0.5, -0.5,
-]), gl.STATIC_DRAW);
+gl.bufferData(
+  gl.ARRAY_BUFFER,
+  new Float32Array([10, 20, 80, 20, 10, 30, 10, 30, 80, 20, 80, 30]),
+  gl.STATIC_DRAW,
+);
+
+resizeCanvasToDisplaySize(canvas);
 
 // Draw
 gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -78,6 +94,26 @@ gl.enableVertexAttribArray(positionAttributeLocation);
 gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
 gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
 
-gl.drawArrays(gl.TRIANGLES, 0, 3);
+gl.uniform2f(resolutionUniformLocation, gl.canvas.width, gl.canvas.height);
+
+gl.drawArrays(gl.TRIANGLES, 0, 6);
 
 console.log("WebGL is working! You should see a blue triangle.");
+
+function resizeCanvasToDisplaySize(canvas) {
+  // Lookup the size the browser is displaying the canvas in CSS pixels.
+  const displayWidth = canvas.clientWidth;
+  const displayHeight = canvas.clientHeight;
+
+  // Check if the canvas is not the same size.
+  const needResize =
+    canvas.width !== displayWidth || canvas.height !== displayHeight;
+
+  if (needResize) {
+    // Make the canvas the same size
+    canvas.width = displayWidth;
+    canvas.height = displayHeight;
+  }
+
+  return needResize;
+}
