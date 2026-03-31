@@ -27,8 +27,10 @@ const vertexShaderSource = `
 const fragmentShaderSource = `
   precision mediump float;
 
+  uniform vec4 u_color;
+
   void main() {
-    gl_FragColor = vec4(0.3, 0.6, 1.0, 1.0);
+    gl_FragColor = u_color;
   }
 `;
 
@@ -72,6 +74,7 @@ const resolutionUniformLocation = gl.getUniformLocation(
   program,
   "u_resolution",
 );
+const colorUniformLocation = gl.getUniformLocation(program, "u_color");
 
 // Create a buffer and put a triangle in it
 const positionBuffer = gl.createBuffer();
@@ -96,9 +99,50 @@ gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
 
 gl.uniform2f(resolutionUniformLocation, gl.canvas.width, gl.canvas.height);
 
-gl.drawArrays(gl.TRIANGLES, 0, 6);
+for (let ii = 0; ii < 50; ++ii) {
+  // Setup a random rectangle
+  // This will write to positionBuffer because
+  // its the last thing we bound on the ARRAY_BUFFER
+  // bind point
+  setRectangle(
+    gl,
+    randomInt(gl.canvas.width),
+    randomInt(gl.canvas.height),
+    randomInt(gl.canvas.width),
+    randomInt(gl.canvas.height),
+  );
+
+  // Set a random color.
+  gl.uniform4f(
+    colorUniformLocation,
+    Math.random(),
+    Math.random(),
+    Math.random(),
+    1,
+  );
+
+  // Draw the rectangle.
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+}
 
 console.log("WebGL is working! You should see a blue triangle.");
+
+function randomInt(range) {
+  return Math.floor(Math.random() * range);
+}
+
+function setRectangle(gl, x, y, width, height) {
+  const x1 = x;
+  const x2 = x + width;
+  const y1 = y;
+  const y2 = y + height;
+
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    new Float32Array([x1, y1, x2, y1, x1, y2, x1, y2, x2, y1, x2, y2]),
+    gl.STATIC_DRAW,
+  );
+}
 
 function resizeCanvasToDisplaySize(canvas) {
   // Lookup the size the browser is displaying the canvas in CSS pixels.
