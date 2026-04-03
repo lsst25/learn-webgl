@@ -1,5 +1,24 @@
 "use strict";
 
+const webglUtils = {
+  resizeCanvasToDisplaySize: (canvas) => {
+    // Lookup the size the browser is displaying the canvas in CSS pixels.
+    const displayWidth = canvas.clientWidth;
+    const displayHeight = canvas.clientHeight;
+
+    // Check if the canvas is not the same size.
+    const needResize = canvas.width !== displayWidth || canvas.height !== displayHeight;
+
+    if (needResize) {
+      // Make the canvas the same size
+      canvas.width = displayWidth;
+      canvas.height = displayHeight;
+    }
+
+    return needResize;
+  },
+};
+
 const canvas = document.getElementById("canvas");
 const gl = canvas.getContext("webgl");
 
@@ -13,9 +32,12 @@ const vertexShaderSource = `
   attribute vec2 a_position;
   
   uniform vec2 u_resolution;
+  uniform vec2 u_translation;
 
   void main() {
-    vec2 zeroToOne = a_position / u_resolution;
+    vec2 position = a_position + u_translation;
+
+    vec2 zeroToOne = position / u_resolution;
     vec2 zeroToTwo = zeroToOne * 2.0;
     vec2 clipSpace = zeroToTwo - 1.0;
 
@@ -61,103 +83,79 @@ function createProgram(gl, vertexShader, fragmentShader) {
 
 // Create shaders and program
 const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-const fragmentShader = createShader(
-  gl,
-  gl.FRAGMENT_SHADER,
-  fragmentShaderSource,
-);
+const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
 const program = createProgram(gl, vertexShader, fragmentShader);
 
 // Look up attribute location
 const positionAttributeLocation = gl.getAttribLocation(program, "a_position");
-const resolutionUniformLocation = gl.getUniformLocation(
-  program,
-  "u_resolution",
-);
+const resolutionUniformLocation = gl.getUniformLocation(program, "u_resolution");
 const colorUniformLocation = gl.getUniformLocation(program, "u_color");
+const translationLocation = gl.getUniformLocation(program, "u_translation");
+
+const SIZE = 2;
+const positions = [
+  // left column
+  0, 0, 30, 0, 0, 150, 0, 150, 30, 0, 30, 150,
+
+  // top rung
+  30, 0, 100, 0, 30, 30, 30, 30, 100, 0, 100, 30,
+
+  // middle rung
+  30, 60, 67, 60, 30, 90, 30, 90, 67, 60, 67, 90,
+];
 
 // Create a buffer and put a triangle in it
 const positionBuffer = gl.createBuffer();
 gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-gl.bufferData(
-  gl.ARRAY_BUFFER,
-  new Float32Array([10, 20, 80, 20, 10, 30, 10, 30, 80, 20, 80, 30]),
-  gl.STATIC_DRAW,
-);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
-resizeCanvasToDisplaySize(canvas);
+var translation = [150, 235];
+var width = 100;
+var height = 30;
+var color = [Math.random(), Math.random(), Math.random(), 1];
 
-// Draw
-gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-gl.clearColor(0.0, 0.0, 0.0, 1.0);
-gl.clear(gl.COLOR_BUFFER_BIT);
+setGeometry(gl);
 
-gl.useProgram(program);
-gl.enableVertexAttribArray(positionAttributeLocation);
-gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
+drawScene();
 
-gl.uniform2f(resolutionUniformLocation, gl.canvas.width, gl.canvas.height);
+webglLessonsUI.setupSlider("#x", { value: translation[0], slide: updatePosition(0), max: gl.canvas.width });
+webglLessonsUI.setupSlider("#y", { value: translation[1], slide: updatePosition(1), max: gl.canvas.height });
 
-for (let ii = 0; ii < 50; ++ii) {
-  // Setup a random rectangle
-  // This will write to positionBuffer because
-  // its the last thing we bound on the ARRAY_BUFFER
-  // bind point
-  setRectangle(
-    gl,
-    randomInt(gl.canvas.width),
-    randomInt(gl.canvas.height),
-    randomInt(gl.canvas.width),
-    randomInt(gl.canvas.height),
-  );
-
-  // Set a random color.
-  gl.uniform4f(
-    colorUniformLocation,
-    Math.random(),
-    Math.random(),
-    Math.random(),
-    1,
-  );
-
-  // Draw the rectangle.
-  gl.drawArrays(gl.TRIANGLES, 0, 6);
+function updatePosition(index) {
+  return function (event, ui) {
+    translation[index] = ui.value;
+    drawScene();
+  };
 }
 
-console.log("WebGL is working! You should see a blue triangle.");
+function drawScene() {
+  webglUtils.resizeCanvasToDisplaySize(gl.canvas);
+
+  gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+  gl.clear(gl.COLOR_BUFFER_BIT);
+
+  gl.useProgram(program);
+
+  gl.enableVertexAttribArray(positionAttributeLocation);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+
+  gl.vertexAttribPointer(positionAttributeLocation, SIZE, gl.FLOAT, false, 0, 0);
+
+  gl.uniform2f(resolutionUniformLocation, gl.canvas.width, gl.canvas.height);
+  gl.uniform4f(colorUniformLocation, ...color);
+  gl.uniform2fv(translationLocation, translation);
+
+  const count = positions.length / SIZE;
+
+  gl.drawArrays(gl.TRIANGLES, 0, count);
+}
 
 function randomInt(range) {
   return Math.floor(Math.random() * range);
 }
 
-function setRectangle(gl, x, y, width, height) {
-  const x1 = x;
-  const x2 = x + width;
-  const y1 = y;
-  const y2 = y + height;
-
-  gl.bufferData(
-    gl.ARRAY_BUFFER,
-    new Float32Array([x1, y1, x2, y1, x1, y2, x1, y2, x2, y1, x2, y2]),
-    gl.STATIC_DRAW,
-  );
-}
-
-function resizeCanvasToDisplaySize(canvas) {
-  // Lookup the size the browser is displaying the canvas in CSS pixels.
-  const displayWidth = canvas.clientWidth;
-  const displayHeight = canvas.clientHeight;
-
-  // Check if the canvas is not the same size.
-  const needResize =
-    canvas.width !== displayWidth || canvas.height !== displayHeight;
-
-  if (needResize) {
-    // Make the canvas the same size
-    canvas.width = displayWidth;
-    canvas.height = displayHeight;
-  }
-
-  return needResize;
+function setGeometry(gl) {
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 }

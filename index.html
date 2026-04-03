@@ -1,17 +1,66 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Learn WebGL</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #1a1a2e; }
-    canvas { border: 1px solid #333; }
-  </style>
-</head>
-<body>
-  <canvas id="canvas" width="800" height="600"></canvas>
-  <script type="module" src="/src/main.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Learn WebGL</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background: #1a1a2e;
+      }
+      canvas {
+        border: 1px solid #333;
+      }
+      #uiContainer {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 16px;
+        border-radius: 8px;
+        color: #ccc;
+        font-family: monospace;
+        font-size: 14px;
+      }
+      #ui > div { margin-bottom: 8px; }
+      .gman-widget-outer {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .gman-widget-label {
+        min-width: 20px;
+        color: #ccc;
+      }
+      .gman-widget-value {
+        min-width: 40px;
+        text-align: right;
+        color: #fff;
+      }
+      .gman-widget-slider {
+        flex: 1;
+      }
+    </style>
+  </head>
+  <body style="position: relative">
+    <canvas id="canvas" width="800" height="600"></canvas>
+    <div id="uiContainer">
+      <div id="ui">
+        <div id="x"></div>
+        <div id="y"></div>
+      </div>
+    </div>
+    <script src="https://webglfundamentals.org/webgl/resources/webgl-utils.js"></script>
+    <script src="https://webglfundamentals.org/webgl/resources/webgl-lessons-ui.js"></script>
+    <script type="module" src="/src/main.js"></script>
+  </body>
 </html>
