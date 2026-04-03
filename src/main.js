@@ -33,9 +33,14 @@ const vertexShaderSource = `
   
   uniform vec2 u_resolution;
   uniform vec2 u_translation;
+  uniform vec2 u_rotation;
 
   void main() {
-    vec2 position = a_position + u_translation;
+    vec2 rotatedPosition = vec2(
+     a_position.x * u_rotation.y + a_position.y * u_rotation.x,
+     a_position.y * u_rotation.y - a_position.x * u_rotation.x);
+
+    vec2 position = rotatedPosition + u_translation;
 
     vec2 zeroToOne = position / u_resolution;
     vec2 zeroToTwo = zeroToOne * 2.0;
@@ -91,6 +96,7 @@ const positionAttributeLocation = gl.getAttribLocation(program, "a_position");
 const resolutionUniformLocation = gl.getUniformLocation(program, "u_resolution");
 const colorUniformLocation = gl.getUniformLocation(program, "u_color");
 const translationLocation = gl.getUniformLocation(program, "u_translation");
+const rotationLocation = gl.getUniformLocation(program, "u_rotation");
 
 const SIZE = 2;
 const positions = [
@@ -109,10 +115,10 @@ const positionBuffer = gl.createBuffer();
 gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
-var translation = [150, 235];
-var width = 100;
-var height = 30;
-var color = [Math.random(), Math.random(), Math.random(), 1];
+const translation = [150, 235];
+const color = [Math.random(), Math.random(), Math.random(), 1];
+
+const rotation = [0.5, 1];
 
 setGeometry(gl);
 
@@ -120,12 +126,26 @@ drawScene();
 
 webglLessonsUI.setupSlider("#x", { value: translation[0], slide: updatePosition(0), max: gl.canvas.width });
 webglLessonsUI.setupSlider("#y", { value: translation[1], slide: updatePosition(1), max: gl.canvas.height });
+webglLessonsUI.setupSlider("#angle", {
+  value: 0,
+  slide: updateAngle,
+  max: 360,
+});
 
 function updatePosition(index) {
   return function (event, ui) {
     translation[index] = ui.value;
     drawScene();
   };
+}
+
+function updateAngle(_, ui) {
+  const angleInRadians = (ui.value * Math.PI) / 180;
+
+  rotation[0] = Math.sin(angleInRadians);
+  rotation[1] = Math.cos(angleInRadians);
+
+  drawScene();
 }
 
 function drawScene() {
@@ -146,6 +166,7 @@ function drawScene() {
   gl.uniform2f(resolutionUniformLocation, gl.canvas.width, gl.canvas.height);
   gl.uniform4f(colorUniformLocation, ...color);
   gl.uniform2fv(translationLocation, translation);
+  gl.uniform2fv(rotationLocation, rotation);
 
   const count = positions.length / SIZE;
 
