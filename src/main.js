@@ -1,21 +1,96 @@
 "use strict";
 
-const webglUtils = {
-  resizeCanvasToDisplaySize: (canvas) => {
-    // Lookup the size the browser is displaying the canvas in CSS pixels.
-    const displayWidth = canvas.clientWidth;
-    const displayHeight = canvas.clientHeight;
+const m3 = {
+  multiply: function (a, b) {
+    var a00 = a[0 * 3 + 0];
+    var a01 = a[0 * 3 + 1];
+    var a02 = a[0 * 3 + 2];
+    var a10 = a[1 * 3 + 0];
+    var a11 = a[1 * 3 + 1];
+    var a12 = a[1 * 3 + 2];
+    var a20 = a[2 * 3 + 0];
+    var a21 = a[2 * 3 + 1];
+    var a22 = a[2 * 3 + 2];
+    var b00 = b[0 * 3 + 0];
+    var b01 = b[0 * 3 + 1];
+    var b02 = b[0 * 3 + 2];
+    var b10 = b[1 * 3 + 0];
+    var b11 = b[1 * 3 + 1];
+    var b12 = b[1 * 3 + 2];
+    var b20 = b[2 * 3 + 0];
+    var b21 = b[2 * 3 + 1];
+    var b22 = b[2 * 3 + 2];
 
-    // Check if the canvas is not the same size.
-    const needResize = canvas.width !== displayWidth || canvas.height !== displayHeight;
+    return [
+      b00 * a00 + b01 * a10 + b02 * a20,
+      b00 * a01 + b01 * a11 + b02 * a21,
+      b00 * a02 + b01 * a12 + b02 * a22,
+      b10 * a00 + b11 * a10 + b12 * a20,
+      b10 * a01 + b11 * a11 + b12 * a21,
+      b10 * a02 + b11 * a12 + b12 * a22,
+      b20 * a00 + b21 * a10 + b22 * a20,
+      b20 * a01 + b21 * a11 + b22 * a21,
+      b20 * a02 + b21 * a12 + b22 * a22,
+    ];
+  },
 
-    if (needResize) {
-      // Make the canvas the same size
-      canvas.width = displayWidth;
-      canvas.height = displayHeight;
-    }
+  identity: function () {
+    // prettier-ignore
+    return [
+      1, 0, 0,
+      0, 1, 0,
+      0, 0, 1,
+    ];
+  },
 
-    return needResize;
+  projection: function (width, height) {
+    // prettier-ignore
+    return [
+      2 / width, 0, 0,
+      0, -2 / height, 0,
+      -1, 1, 1
+    ];
+  },
+
+  translation: function (tx, ty) {
+    // prettier-ignore
+    return [
+      1, 0, 0,
+      0, 1, 0,
+      tx, ty, 1,
+    ];
+  },
+
+  rotation: function (angleInRadians) {
+    var c = Math.cos(angleInRadians);
+    var s = Math.sin(angleInRadians);
+    // prettier-ignore
+    return [
+      c,-s, 0,
+      s, c, 0,
+      0, 0, 1,
+    ];
+  },
+
+  scaling: function (sx, sy) {
+    // prettier-ignore
+    return [
+      sx, 0, 0,
+      0, sy, 0,
+      0, 0, 1,
+    ];
+  },
+
+  translate: function (m, tx, ty) {
+    return m3.multiply(m, m3.translation(tx, ty));
+  },
+
+  rotate: function (m, angleInRadians) {
+    return m3.multiply(m, m3.rotation(angleInRadians));
+  },
+
+  scale: function (m, sx, sy) {
+    return m3.multiply(m, m3.scaling(sx, sy));
   },
 };
 
@@ -30,23 +105,11 @@ if (!gl) {
 // Vertex shader - positions geometry
 const vertexShaderSource = `
   attribute vec2 a_position;
-  
-  uniform vec2 u_resolution;
-  uniform vec2 u_translation;
-  uniform vec2 u_rotation;
+
+  uniform mat3 u_matrix;
 
   void main() {
-    vec2 rotatedPosition = vec2(
-     a_position.x * u_rotation.y + a_position.y * u_rotation.x,
-     a_position.y * u_rotation.y - a_position.x * u_rotation.x);
-
-    vec2 position = rotatedPosition + u_translation;
-
-    vec2 zeroToOne = position / u_resolution;
-    vec2 zeroToTwo = zeroToOne * 2.0;
-    vec2 clipSpace = zeroToTwo - 1.0;
-
-    gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
+    gl_Position = vec4((u_matrix * vec3(a_position, 1)).xy, 0, 1);
   }
 `;
 
@@ -61,42 +124,13 @@ const fragmentShaderSource = `
   }
 `;
 
-function createShader(gl, type, source) {
-  const shader = gl.createShader(type);
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    console.error("Shader compile error:", gl.getShaderInfoLog(shader));
-    gl.deleteShader(shader);
-    return null;
-  }
-  return shader;
-}
-
-function createProgram(gl, vertexShader, fragmentShader) {
-  const program = gl.createProgram();
-  gl.attachShader(program, vertexShader);
-  gl.attachShader(program, fragmentShader);
-  gl.linkProgram(program);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    console.error("Program link error:", gl.getProgramInfoLog(program));
-    gl.deleteProgram(program);
-    return null;
-  }
-  return program;
-}
-
-// Create shaders and program
-const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-const program = createProgram(gl, vertexShader, fragmentShader);
+const program = webglUtils.createProgramFromSources(gl, [vertexShaderSource, fragmentShaderSource]);
 
 // Look up attribute location
 const positionAttributeLocation = gl.getAttribLocation(program, "a_position");
-const resolutionUniformLocation = gl.getUniformLocation(program, "u_resolution");
 const colorUniformLocation = gl.getUniformLocation(program, "u_color");
-const translationLocation = gl.getUniformLocation(program, "u_translation");
-const rotationLocation = gl.getUniformLocation(program, "u_rotation");
+
+const matrixUniformLocation = gl.getUniformLocation(program, "u_matrix");
 
 const SIZE = 2;
 const positions = [
@@ -115,10 +149,11 @@ const positionBuffer = gl.createBuffer();
 gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
-const translation = [150, 235];
+const translation = [100, 100];
 const color = [Math.random(), Math.random(), Math.random(), 1];
 
-const rotation = [0.5, 1];
+let angleInRadians = 0;
+const scale = [0.9, 0.9];
 
 setGeometry(gl);
 
@@ -126,10 +161,22 @@ drawScene();
 
 webglLessonsUI.setupSlider("#x", { value: translation[0], slide: updatePosition(0), max: gl.canvas.width });
 webglLessonsUI.setupSlider("#y", { value: translation[1], slide: updatePosition(1), max: gl.canvas.height });
-webglLessonsUI.setupSlider("#angle", {
-  value: 0,
-  slide: updateAngle,
-  max: 360,
+webglLessonsUI.setupSlider("#angle", { value: 0, slide: updateAngle, max: 360 });
+webglLessonsUI.setupSlider("#scaleX", {
+  value: scale[0],
+  slide: updateScale(0),
+  min: -5,
+  max: 5,
+  step: 0.01,
+  precision: 2,
+});
+webglLessonsUI.setupSlider("#scaleY", {
+  value: scale[1],
+  slide: updateScale(1),
+  min: -5,
+  max: 5,
+  step: 0.01,
+  precision: 2,
 });
 
 function updatePosition(index) {
@@ -139,12 +186,16 @@ function updatePosition(index) {
   };
 }
 
-function updateAngle(_, ui) {
-  const angleInRadians = (ui.value * Math.PI) / 180;
+function updateScale(index) {
+  return function (_, ui) {
+    scale[index] = ui.value;
+    drawScene();
+  };
+}
 
-  rotation[0] = Math.sin(angleInRadians);
-  rotation[1] = Math.cos(angleInRadians);
-
+function updateAngle(event, ui) {
+  const angleInDegrees = 360 - ui.value;
+  angleInRadians = (angleInDegrees * Math.PI) / 180;
   drawScene();
 }
 
@@ -163,10 +214,17 @@ function drawScene() {
 
   gl.vertexAttribPointer(positionAttributeLocation, SIZE, gl.FLOAT, false, 0, 0);
 
-  gl.uniform2f(resolutionUniformLocation, gl.canvas.width, gl.canvas.height);
-  gl.uniform4f(colorUniformLocation, ...color);
-  gl.uniform2fv(translationLocation, translation);
-  gl.uniform2fv(rotationLocation, rotation);
+  gl.uniform4fv(colorUniformLocation, color);
+
+  const { clientWidth, clientHeight } = gl.canvas;
+
+  let matrix = m3.projection(clientWidth, clientHeight);
+  matrix = m3.translate(matrix, ...translation);
+  matrix = m3.rotate(matrix, angleInRadians);
+  matrix = m3.scale(matrix, ...scale);
+  matrix = m3.translate(matrix, -50, -75);
+
+  gl.uniformMatrix3fv(matrixUniformLocation, false, matrix);
 
   const count = positions.length / SIZE;
 
