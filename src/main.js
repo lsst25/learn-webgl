@@ -334,7 +334,10 @@ const rotation = [degToRad(190), degToRad(40), degToRad(320)];
 let fieldOfViewInRadians = degToRad(60);
 let cameraAngleRadians = degToRad(0);
 
-drawScene();
+const rotationSpeed = 1.2;
+let then = 0;
+
+requestAnimationFrame(drawScene);
 
 webglLessonsUI.setupSlider("#cameraAngle", {
   value: radToDeg(cameraAngleRadians),
@@ -412,7 +415,12 @@ function updateRotation(index) {
   };
 }
 
-function drawScene() {
+function drawScene(now) {
+  now *= 0.001;
+  const deltaTime = then - now;
+  then = now;
+
+  rotation[1] += rotationSpeed * deltaTime;
   webglUtils.resizeCanvasToDisplaySize(gl.canvas);
 
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -433,59 +441,22 @@ function drawScene() {
   gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
   gl.vertexAttribPointer(colorAttributeLocation, 3, gl.UNSIGNED_BYTE, true, 0, 0);
 
-  const numFs = 5;
-  const radius = 200;
-
   const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
-  const zNear = 1;
-  const zFar = 2000;
+  let matrix = m4.perspective(fieldOfViewInRadians, aspect, 1, 2000);
+  matrix = m4.translate(matrix, translation[0], translation[1], translation[2]);
+  matrix = m4.xRotate(matrix, rotation[0]);
+  matrix = m4.yRotate(matrix, rotation[1]);
+  matrix = m4.zRotate(matrix, rotation[2]);
+  matrix = m4.scale(matrix, scale[0], scale[1], scale[2]);
 
-  const projectionMatrix = m4.perspective(fieldOfViewInRadians, aspect, zNear, zFar);
+  gl.uniformMatrix4fv(matrixUniformLocation, false, matrix);
 
-  const fPosition = [radius, 0, 0];
+  const primitiveType = gl.TRIANGLES;
+  const offset = 0;
+  const count = 16 * 6;
+  gl.drawArrays(primitiveType, offset, count);
 
-  let cameraMatrix = m4.yRotation(cameraAngleRadians);
-  cameraMatrix = m4.translate(cameraMatrix, 0, 0, radius * 1.5);
-
-  const cameraPosition = [cameraMatrix[12], cameraMatrix[13], cameraMatrix[14]];
-
-  const up = [0, 1, 0];
-
-  cameraMatrix = m4.lookAt(cameraPosition, fPosition, up);
-
-  const viewMatrix = m4.inverse(cameraMatrix);
-
-  const viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);
-
-  for (let ii = 0; ii < numFs; ++ii) {
-    var angle = (ii * Math.PI * 2) / numFs;
-    var x = Math.cos(angle) * radius;
-    var y = Math.sin(angle) * radius;
-
-    // starting with the view projection matrix
-    // compute a matrix for the F
-    var matrix = m4.translate(viewProjectionMatrix, x, 0, y);
-
-    // Set the matrix.
-    gl.uniformMatrix4fv(matrixUniformLocation, false, matrix);
-
-    // Draw the geometry.
-    var primitiveType = gl.TRIANGLES;
-    var offset = 0;
-    var count = 16 * 6;
-    gl.drawArrays(primitiveType, offset, count);
-  }
-
-  // matrix = m4.xRotate(matrix, rotation[0]);
-  // matrix = m4.yRotate(matrix, rotation[1]);
-  // matrix = m4.zRotate(matrix, rotation[2]);
-  // matrix = m4.scale(matrix, scale[0], scale[1], scale[2]);
-  //
-  // gl.uniformMatrix4fv(matrixUniformLocation, false, matrix);
-  //
-  // const count = 16 * 6;
-  //
-  // gl.drawArrays(gl.TRIANGLES, 0, count);
+  requestAnimationFrame(drawScene);
 }
 
 function randomInt(range) {
