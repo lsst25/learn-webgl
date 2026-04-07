@@ -1,6 +1,23 @@
 "use strict";
 
 const m4 = {
+  lookAt: function (cameraPosition, target, up) {
+    var zAxis = normalize(subtractVectors(cameraPosition, target));
+    var xAxis = normalize(cross(up, zAxis));
+    var yAxis = normalize(cross(zAxis, xAxis));
+
+    // prettier-ignore
+    return [
+       xAxis[0], xAxis[1], xAxis[2], 0,
+       yAxis[0], yAxis[1], yAxis[2], 0,
+       zAxis[0], zAxis[1], zAxis[2], 0,
+       cameraPosition[0],
+       cameraPosition[1],
+       cameraPosition[2],
+       1,
+    ];
+  },
+
   inverse: function (m) {
     var m00 = m[0 * 4 + 0];
     var m01 = m[0 * 4 + 1];
@@ -319,7 +336,12 @@ let cameraAngleRadians = degToRad(0);
 
 drawScene();
 
-webglLessonsUI.setupSlider("#cameraAngle", { value: radToDeg(cameraAngleRadians), slide: updateCameraAngle, min: -360, max: 360 });
+webglLessonsUI.setupSlider("#cameraAngle", {
+  value: radToDeg(cameraAngleRadians),
+  slide: updateCameraAngle,
+  min: -360,
+  max: 360,
+});
 webglLessonsUI.setupSlider("#fieldOfView", {
   value: radToDeg(fieldOfViewInRadians),
   slide: updateFieldOfView,
@@ -414,17 +436,24 @@ function drawScene() {
   const numFs = 5;
   const radius = 200;
 
-  // Compute a matrix for the camera
-  let cameraMatrix = m4.yRotation(cameraAngleRadians);
-  cameraMatrix = m4.translate(cameraMatrix, 0, 0, radius * 1.5);
-
-  const viewMatrix = m4.inverse(cameraMatrix);
-
   const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
   const zNear = 1;
   const zFar = 2000;
 
   const projectionMatrix = m4.perspective(fieldOfViewInRadians, aspect, zNear, zFar);
+
+  const fPosition = [radius, 0, 0];
+
+  let cameraMatrix = m4.yRotation(cameraAngleRadians);
+  cameraMatrix = m4.translate(cameraMatrix, 0, 0, radius * 1.5);
+
+  const cameraPosition = [cameraMatrix[12], cameraMatrix[13], cameraMatrix[14]];
+
+  const up = [0, 1, 0];
+
+  cameraMatrix = m4.lookAt(cameraPosition, fPosition, up);
+
+  const viewMatrix = m4.inverse(cameraMatrix);
 
   const viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);
 
@@ -521,54 +550,54 @@ function setColors(gl) {
 
 function setGeometry(gl) {
   const positions = new Float32Array([
-      // left column front
-      0, 0, 0, 0, 150, 0, 30, 0, 0, 0, 150, 0, 30, 150, 0, 30, 0, 0,
+    // left column front
+    0, 0, 0, 0, 150, 0, 30, 0, 0, 0, 150, 0, 30, 150, 0, 30, 0, 0,
 
-      // top rung front
-      30, 0, 0, 30, 30, 0, 100, 0, 0, 30, 30, 0, 100, 30, 0, 100, 0, 0,
+    // top rung front
+    30, 0, 0, 30, 30, 0, 100, 0, 0, 30, 30, 0, 100, 30, 0, 100, 0, 0,
 
-      // middle rung front
-      30, 60, 0, 30, 90, 0, 67, 60, 0, 30, 90, 0, 67, 90, 0, 67, 60, 0,
+    // middle rung front
+    30, 60, 0, 30, 90, 0, 67, 60, 0, 30, 90, 0, 67, 90, 0, 67, 60, 0,
 
-      // left column back
-      0, 0, 30, 30, 0, 30, 0, 150, 30, 0, 150, 30, 30, 0, 30, 30, 150, 30,
+    // left column back
+    0, 0, 30, 30, 0, 30, 0, 150, 30, 0, 150, 30, 30, 0, 30, 30, 150, 30,
 
-      // top rung back
-      30, 0, 30, 100, 0, 30, 30, 30, 30, 30, 30, 30, 100, 0, 30, 100, 30, 30,
+    // top rung back
+    30, 0, 30, 100, 0, 30, 30, 30, 30, 30, 30, 30, 100, 0, 30, 100, 30, 30,
 
-      // middle rung back
-      30, 60, 30, 67, 60, 30, 30, 90, 30, 30, 90, 30, 67, 60, 30, 67, 90, 30,
+    // middle rung back
+    30, 60, 30, 67, 60, 30, 30, 90, 30, 30, 90, 30, 67, 60, 30, 67, 90, 30,
 
-      // top
-      0, 0, 0, 100, 0, 0, 100, 0, 30, 0, 0, 0, 100, 0, 30, 0, 0, 30,
+    // top
+    0, 0, 0, 100, 0, 0, 100, 0, 30, 0, 0, 0, 100, 0, 30, 0, 0, 30,
 
-      // top rung right
-      100, 0, 0, 100, 30, 0, 100, 30, 30, 100, 0, 0, 100, 30, 30, 100, 0, 30,
+    // top rung right
+    100, 0, 0, 100, 30, 0, 100, 30, 30, 100, 0, 0, 100, 30, 30, 100, 0, 30,
 
-      // under top rung
-      30, 30, 0, 30, 30, 30, 100, 30, 30, 30, 30, 0, 100, 30, 30, 100, 30, 0,
+    // under top rung
+    30, 30, 0, 30, 30, 30, 100, 30, 30, 30, 30, 0, 100, 30, 30, 100, 30, 0,
 
-      // between top rung and middle
-      30, 30, 0, 30, 60, 30, 30, 30, 30, 30, 30, 0, 30, 60, 0, 30, 60, 30,
+    // between top rung and middle
+    30, 30, 0, 30, 60, 30, 30, 30, 30, 30, 30, 0, 30, 60, 0, 30, 60, 30,
 
-      // top of middle rung
-      30, 60, 0, 67, 60, 30, 30, 60, 30, 30, 60, 0, 67, 60, 0, 67, 60, 30,
+    // top of middle rung
+    30, 60, 0, 67, 60, 30, 30, 60, 30, 30, 60, 0, 67, 60, 0, 67, 60, 30,
 
-      // right of middle rung
-      67, 60, 0, 67, 90, 30, 67, 60, 30, 67, 60, 0, 67, 90, 0, 67, 90, 30,
+    // right of middle rung
+    67, 60, 0, 67, 90, 30, 67, 60, 30, 67, 60, 0, 67, 90, 0, 67, 90, 30,
 
-      // bottom of middle rung.
-      30, 90, 0, 30, 90, 30, 67, 90, 30, 30, 90, 0, 67, 90, 30, 67, 90, 0,
+    // bottom of middle rung.
+    30, 90, 0, 30, 90, 30, 67, 90, 30, 30, 90, 0, 67, 90, 30, 67, 90, 0,
 
-      // right of bottom
-      30, 90, 0, 30, 150, 30, 30, 90, 30, 30, 90, 0, 30, 150, 0, 30, 150, 30,
+    // right of bottom
+    30, 90, 0, 30, 150, 30, 30, 90, 30, 30, 90, 0, 30, 150, 0, 30, 150, 30,
 
-      // bottom
-      0, 150, 0, 0, 150, 30, 30, 150, 30, 0, 150, 0, 30, 150, 30, 30, 150, 0,
+    // bottom
+    0, 150, 0, 0, 150, 30, 30, 150, 30, 0, 150, 0, 30, 150, 30, 30, 150, 0,
 
-      // left side
-      0, 0, 0, 0, 0, 30, 0, 150, 30, 0, 0, 0, 0, 150, 30, 0, 150, 0,
-    ]);
+    // left side
+    0, 0, 0, 0, 0, 30, 0, 150, 30, 0, 0, 0, 0, 150, 30, 0, 150, 0,
+  ]);
 
   // Center the F around the origin and flip it so +Y is up.
   let matrix = m4.xRotation(Math.PI);
@@ -586,4 +615,25 @@ function setGeometry(gl) {
 
 function makeZToWMatrix(fudgeFactor) {
   return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, fudgeFactor, 0, 0, 0, 1];
+}
+
+function cross(a, b) {
+  // prettier-ignore
+  return [a[1] * b[2] - a[2] * b[1],
+          a[2] * b[0] - a[0] * b[2],
+          a[0] * b[1] - a[1] * b[0]];
+}
+
+function subtractVectors(a, b) {
+  return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+}
+
+function normalize(v) {
+  var length = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+  // make sure we don't divide by 0.
+  if (length > 0.00001) {
+    return [v[0] / length, v[1] / length, v[2] / length];
+  } else {
+    return [0, 0, 0];
+  }
 }
